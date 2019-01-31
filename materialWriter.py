@@ -1,19 +1,6 @@
 import numpy as np
 
 
-class Material:
-    """
-    Materials class
-    """
-
-    def __init__(self, name, density, temperature, composition, moder=0):
-        self.name = name
-        self.density = density
-        self.temperature = temperature
-        self.composition = composition
-        self.moder = moder
-
-
 class MatObjWriter:
     """
     Writes the material section in a Serpent input file

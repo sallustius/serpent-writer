@@ -1,48 +1,71 @@
 """ The code writes the geometry input for Serpent"""
-
 import numpy as np
 
 
-class PinCellWrite:
+class GeometryWriter:
     """
-    The class translates the PinCell object in Serpent input-file
+    Class to write geometry section in Serpent input file
+
+    Parameters
+    ----------
+    file_path: string
+        File path
+    geometry: Geometry object
+        radii vector
+
     """
-
-    def __init__(self, filePath, pinX):
-        self.filePath = filePath
-        self.pinX = pinX
-
-    def _writePin(self, fp):
-        fp.write('pin %s \n' % self.pinX.name)
-        for ii in range(0, np.size(self.pinX.dimensions) - 1):
-            fp.write('%s   %.4f \n' % (self.pinX.materials[ii],
-                                     self.pinX.dimensions[ii]))
-        fp.write('%s  \n' % (self.pinX.materials[-1]))
-
-    def _writeCell(self, fp):
-        fp.write('\nsurf 1 sqc 0.0 0.0 %s \n' % self.pinX.dimensions[-1])
-        fp.write('cell 1  0 fill %s -1 \n' % self.pinX.name)
-        fp.write('cell 99 0 outside 1 \n')
+    def __init__(self, file_path, geometry):
+        self.title = geometry.name
+        self.fp = file_path
+        self.pins = geometry.pins
+        self.assm = geometry.assemblies
+        self.cell = geometry.cell
+        self.bc = geometry.bc
 
     def write(self):
-        fp = open(self.filePath, 'w')
-        self._writePin(fp)
-        self._writeCell(fp)
+        fp = open(self.fp, 'w')
+        fp.write('set title "%s"\n\n' % self.title)
+        self._write_pins(fp)
+        self._write_assms(fp)
+        self._write_cell(fp)
+        self._write_box(fp)
         fp.close()
 
+    def _write_pins(self, fp):
+        fp.write('%--- PINS DEFINITIONS\n')
+        for jj in range(0, len(self.pins)):
+            fp.write('pin %s \n' % self.pins[jj].name)
+            for ii in range(0, np.size(self.pins[jj].radii) - 1):
+                fp.write('%s   %.4f \n' % (self.pins[jj].materials[ii],
+                                           self.pins[jj].radii[ii]))
+            fp.write('%s  \n\n' % (self.pins[jj].materials[-1]))
 
-class PinCell:
-    """
-    Class building pin geometry
+    def _write_assms(self, fp):
+        fp.write('%--- ASSEMBLIES DEFINITIONS\n')
+        for ii in range(0, len(self.assm)):
+            fp.write('lat %s 1 0.0 0.0 %d %d %.2f\n'
+                     % (self.assm[ii].name, len(self.assm[ii].map),
+                        len(self.assm[ii].map), self.assm[ii].pitch))
+            for jj in range(0, 3):
+                for kk in range(0, 3):
+                    fp.write('%s ' % self.assm[ii].map[jj][kk])
+                fp.write('\n')
+            fp.write('\n')
 
-    Parameters:
-        - name
-        - radii's vector
-        - matList: list of material associated to anular sectors
-    """
+    def _write_cell(self, fp):
+        fp.write('%--- SUPER-CELL DEFINITION\n')
+        fp.write('lat %s 1 0.0 0.0 %d %d %.2f\n'
+                 % (self.cell.name, 2,
+                    2, self.cell.pitch))
+        for jj in range(0, 2):
+            for kk in range(0, 2):
+                fp.write('%s ' % self.cell.map[jj][kk])
+            fp.write('\n')
+        fp.write('\n')
 
-    def __init__(self, name, dimensions, materials):
-        self.name = name
-        self.dimensions = dimensions
-        self.materials = materials
-
+    def _write_box(self, fp):
+        fp.write('surf 5 cuboid %.2f %.2f %.2f %.2f %.2f %.2f \n'
+                 % (-160.65, 160.65, -160.65, 160.65, -10.71, 10.71))
+        fp.write('cell 98  0 fill %s   -5\n' % self.cell.name)
+        fp.write('cell 99  0 outside   5\n')
+        fp.write('set bc 1 1 2\n')
