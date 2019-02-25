@@ -1,6 +1,8 @@
 """ Collection of writers to create the Serpent input file"""
 import numpy as np
 
+MAX_NUM = 1e+37
+
 
 class SerpentWriter:
     """
@@ -43,6 +45,7 @@ class SerpentWriter:
         # Close file
         file.close()
 
+
 class _GeometryWriter:
 
     def __init__(self, file_path, geometry):
@@ -51,12 +54,11 @@ class _GeometryWriter:
 
     def geo_write(self):
         self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n')
-        self.fp.write('%\t\t\t GEOMETRY\n')
+        self.fp.write('%\t\t GEOMETRY\n')
         self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\n')
         self._write_pins(self.fp)
         self._write_assms(self.fp)
         self._write_cell(self.fp)
-        self._write_box(self.fp)
 
     def _write_pins(self, fp):
         fp.write('%--- Pins\n')
@@ -80,49 +82,66 @@ class _GeometryWriter:
             fp.write('\n')
 
     def _write_cell(self, fp):
+        gg = np.asarray(self.g.cell.map)
+        print(gg)
         fp.write('%--- Super-Cell\n')
         fp.write('lat %s 1 0.0 0.0 %d %d %.2f\n'
-                 % (self.g.cell.name, 2,
-                    2, self.g.cell.pitch))
-        for jj in range(0, np.size(self.g.cell.map[0])):
-            for kk in range(0, np.size(self.g.cell.map[1])):
-                fp.write('%s ' % self.g.cell.map[jj][kk])
+                 % (self.g.cell.name, np.size(gg, 0),
+                    np.size(gg, 1), self.g.cell.pitch))
+        for jj in range(0, np.size(gg, 0)):
+            for kk in range(0, np.size(gg, 1)):
+                fp.write('%s ' % gg[jj, kk])
             fp.write('\n')
+        box_len1 = self.g.cell.pitch*np.size(gg, 0)/2
+        box_len2 = self.g.cell.pitch*np.size(gg, 1)/2
+        fp.write('\nsurf s1 rect %.2f %.2f %.2f %.2f\n'
+                 % (-box_len1, box_len1, -box_len2, box_len2))
+        fp.write('cell 98  0 fill %s   -s1\n' % self.g.cell.name)
+        fp.write('cell 99  0 outside   s1\n')
+        if self.g.cell.bc[0] == 'reflective':
+            if self.g.cell.bc[1] == 'reflective':
+                fp.write('set bc 2\n')
+            elif self.g.cell.bc[1] == 'vacuum':
+                fp.write('set bc 2 1\n')
+        elif self.g.cell.bc[0] == 'vacuum':
+            if self.g.cell.bc[1] == 'reflective':
+                fp.write('set bc 2 1\n')
+            elif self.g.cell.bc[1] == 'vacuum':
+                fp.write('set bc 1\n')
         fp.write('\n')
-
-    def _write_box(self, fp):
-        lung1 = self.g.cell.pitch*np.size(self.g.cell.map[0])/2
-        fp.write('surf 5 cuboid %.2f %.2f %.2f %.2f %.2f %.2f \n'
-                 % (-lung1, lung1, -lung1, lung1, -10.71, 10.71))
-        fp.write('cell 98  0 fill %s   -5\n' % self.g.cell.name)
-        fp.write('cell 99  0 outside   5\n')
-        fp.write('set bc 1 1 2\n')
 
 
 class _MaterialsWriter:
-    """
-
-    """
     def __init__(self, file_path, materials):
         self.lista = materials
         self.fp = file_path
 
     def mat_write(self):
-        """ Iterates over materials in the dictionary"""
+        """ Iterates over materials in the list"""
         self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n')
-        self.fp.write('%\t\t\t MATERIALS\n')
+        self.fp.write('%\t\t MATERIALS\n')
         self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\n')
         for ii in range(0, len(self.lista)):
-            if self.lista[ii].moder == 0:
+            if self.lista[ii].moder is None:
                 self.fp.write('mat %s %s\n' % (
                     self.lista[ii].name, self.lista[ii].density))
             else:
+                self.fp.write('therm lwtr %s\n' % self.lista[ii].moder)
                 self.fp.write('mat %s %s moder lwtr 1001\n' % (
                     self.lista[ii].name, self.lista[ii].density))
+
             lunghezza = np.size(self.lista[ii].composition, 0)
-            for jj in range(0, lunghezza):
-                self.fp.write('%s %s\n' % (self.lista[ii].composition[jj][0],
-                                           self.lista[ii].composition[jj][1]))
+            if self.lista[ii].param == 'mass':
+                for jj in range(0, lunghezza):
+                    self.fp.write('%s -%s\n' %
+                                  (self.lista[ii].composition[jj][0],
+                                   self.lista[ii].composition[jj][1]))
+            elif self.lista[ii].param == 'molar':
+                for jj in range(0, lunghezza):
+                    self.fp.write('%s %s\n' %
+                                  (self.lista[ii].composition[jj][0],
+                                   self.lista[ii].composition[jj][1]))
+
             self.fp.write('\n')
 
 
@@ -133,7 +152,7 @@ class _SettingsWriter:
 
     def set_write(self):
         self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n')
-        self.fp.write('%\t\t\t SETTINGS\n')
+        self.fp.write('%\t\t SETTINGS\n')
         self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\n')
         self.fp.write('set pop %s %s %s %s \n' %
                       (self.set['pop'], self.set['active cycles'],
@@ -147,9 +166,6 @@ class _SettingsWriter:
 
 
 class _DetectorWriter:
-    """
-
-    """
     def __init__(self, file_path, fission_matrix):
         self.fp = file_path
         self.fm = fission_matrix
@@ -174,9 +190,9 @@ class _DetectorWriter:
         flag = self._pre_check()
         if flag == 0:
             raise ValueError('Only supported FM-type is "cartesian"')
-        print('Appending detectors')
+        print('Appending fission matrix definition')
         self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n')
-        self.fp.write('%\t\t\t FISSION MATRIX\n')
+        self.fp.write('%\t\t FISSION MATRIX\n')
         self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\n')
         self.fp.write(self._fission_matrix_cart(flag))
         print('Completed')
