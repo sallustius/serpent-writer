@@ -104,7 +104,7 @@ class Cell:
         Assembly Map
     pitch: float
         Pitch between assemblies
-    boundary_condition: string
+    boundary_condition: list
         String for boundary conditions
 
     Attributes
@@ -113,7 +113,7 @@ class Cell:
         ID for the super-cell
     map: list
         Assembly map
-    bc: string
+    bc: list
         Contains boundary conditions,
         'reflective': reflective bc
         'vacuum': vacuum bc
@@ -130,8 +130,10 @@ class Cell:
     def _pre_check(self):
         assert(isinstance(self.name, str))
         assert(isinstance(self.map, list))
-        assert(self.bc == 'reflective' or self.bc == 'vacuum'
-               or self.bc == 'periodic')
+        assert(self.bc[0] == 'reflective' or self.bc[0] == 'vacuum'
+               or self.bc[0] == 'periodic')
+        assert (self.bc[1] == 'reflective' or self.bc[1] == 'vacuum'
+                or self.bc[1] == 'periodic')
 
 
 class Geometry:
@@ -160,11 +162,6 @@ class Geometry:
         List of AssmCell objects
     cell: object
         Contains the super-cell specifications
-    bc: string
-        Contains boundary conditions,
-        'reflective': reflective bc
-        'vacuum': vacuum bc
-        'periodic': periodic bc
     """
 
     def __init__(self, name, pin_set, assm_set, super_cell):
@@ -172,7 +169,6 @@ class Geometry:
         self.pins = pin_set
         self.assm = assm_set
         self.cell = super_cell
-        self.bc = super_cell.bc
 
 
 class Material:
@@ -189,8 +185,8 @@ class Material:
         material temperature in K
     composition: list
         list containing zaids and corresponding number densities
-    moder: int
-        moder=0, no moderator
+    moder: str
+        moder=None, no moderator
         moder='' library utilized for the moderator
 
     Attributes
@@ -203,17 +199,23 @@ class Material:
         material temperature in K
     composition: list
         list containing zaids and corresponding number densities
-    moder: int
-        moder=0, no moderator
+    moder: str
+        moder=None, no moderator
         moder='' library utilized for the moderator
+    param: str
+        'mass' concentration
+        'molar' concentration
+
 
     """
 
-    def __init__(self, name, density, temperature, composition, moder=0):
+    def __init__(self, name, density, temperature, composition,
+                 param='mass',moder=None):
         self.name = name
         self.density = density
         self.temperature = temperature
         self.composition = composition
+        self.param = param
         self.moder = moder
 
 

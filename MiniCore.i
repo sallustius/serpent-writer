@@ -1,7 +1,7 @@
 set title "input"
 
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%			 GEOMETRY
+%		 GEOMETRY
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %--- Pins
@@ -50,34 +50,33 @@ ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
 
 %--- Super-Cell
-lat Super 1 0.0 0.0 2 2 21.42
-a1 a2 a1 a2 
-a1 a2 a2 a2 
-a1 a2 a2 a2 
-a1 a2 a2 a2 
+lat Super 1 0.0 0.0 1 2 21.42
+a1 a2 
 
-surf 5 cuboid -42.84 42.84 -42.84 42.84 -10.71 10.71 
-cell 98  0 fill Super   -5
-cell 99  0 outside   5
-set bc 1 1 2
+surf s1 rect -10.71 10.71 -21.42 21.42
+cell 98  0 fill Super   -s1
+cell 99  0 outside   s1
+set bc 2 1
+
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%			 MATERIALS
+%		 MATERIALS
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-mat fuel -10.9
-92235.09c 1.0
-92238.09c 1.0
-92239.09c 1.0
+mat fuel -10.3067
+92235.09c -0.02644492
+92238.09c -0.85505247
+8016.09c -0.11850261
 
+therm lwtr lwj3.11t 
 mat water -0.700452 moder lwtr 1001
 1001.06c 0.6666667
 8016.06c 0.3333333
 
 mat clad -6.5
-40000.06c 1.0
+40000.06c -1.0
 
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%			 SETTINGS
+%		 SETTINGS
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 set pop 100000 100 50 1.0 
@@ -88,7 +87,7 @@ set nfg 1
 ene ciao 1 0 20
 
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%			 FISSION MATRIX
+%		 FISSION MATRIX
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-set fmtx 4 -21.42 21.42 17 -21.42 21.42 17 -1.00e+37 1.00e+37 1
+set fmtx 4 -21.42 21.42 34 10.71 10.71 17 -1.00e+37 1.00e+37 1
