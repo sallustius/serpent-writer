@@ -49,7 +49,7 @@ ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
 
-%--- Super-Cell
+%--- Super-cell
 lat Super 1 0.0 0.0 1 2 21.42
 a1 a2 
 
@@ -62,10 +62,10 @@ set bc 2 1
 %		 MATERIALS
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-mat fuel -10.3067
-92235.09c -0.02644492
-92238.09c -0.85505247
-8016.09c -0.11850261
+mat fuel -10.9
+92235.09c -1.0
+92238.09c -1.0
+92239.09c -1.0
 
 therm lwtr lwj3.11t 
 mat water -0.700452 moder lwtr 1001
@@ -73,7 +73,7 @@ mat water -0.700452 moder lwtr 1001
 8016.06c 0.3333333
 
 mat clad -6.5
-40000.06c -1.0
+40000.06c 1.0
 
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %		 SETTINGS
@@ -90,4 +90,4 @@ ene ciao 1 0 20
 %		 FISSION MATRIX
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-set fmtx 4 -21.42 21.42 34 10.71 10.71 17 -1.00e+37 1.00e+37 1
+set fmtx 4 -21.42 21.42 34 -10.71 10.71 17 -1.00e+37 1.00e+37 1
