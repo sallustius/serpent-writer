@@ -21,7 +21,7 @@ class SerpentWriter:
 
     """
     def __init__(self, file_path, geometry, materials, settings,
-                 fission_matrix, title='input'):
+                 fission_matrix=None, title='input'):
         self.fp = file_path
         self.geo = geometry
         self.mat = materials
@@ -36,12 +36,13 @@ class SerpentWriter:
         m = _MaterialsWriter(file, self.mat)
         g = _GeometryWriter(file, self.geo)
         s = _SettingsWriter(file, self.set)
-        d = _DetectorWriter(file, self.fm)
         # Write on input file
         g.geo_write()
         m.mat_write()
         s.set_write()
-        d.fm_write()
+        if self.fm:
+            d = _DetectorWriter(file, self.fm)
+            d.fm_write()
         # Close file
         file.close()
 
@@ -57,8 +58,10 @@ class _GeometryWriter:
         self.fp.write('%\t\t GEOMETRY\n')
         self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\n')
         self._write_pins(self.fp)
-        self._write_assms(self.fp)
-        self._write_cell(self.fp)
+        if self.g.group:
+            self._write_assms(self.fp)
+            if self.g.root:
+                self._write_root(self.fp)
 
     def _write_pins(self, fp):
         fp.write('%--- Pins\n')
@@ -69,44 +72,66 @@ class _GeometryWriter:
                                            self.g.pins[jj].radii[ii]))
             fp.write('%s  \n\n' % (self.g.pins[jj].materials[-1]))
 
-    def _write_assms(self, fp):
-        fp.write('%--- Assemblies\n')
-        for ii in range(0, len(self.g.assm)):
-            fp.write('lat %s 1 0.0 0.0 %d %d %.2f\n'
-                     % (self.g.assm[ii].name, len(self.g.assm[ii].map),
-                        len(self.g.assm[ii].map), self.g.assm[ii].pitch))
-            for jj in range(0, np.size(self.g.assm[ii].map, 0)):
-                for kk in range(0, np.size(self.g.assm[ii].map, 1)):
-                    fp.write('%s ' % self.g.assm[ii].map[jj][kk])
-                fp.write('\n')
+        if self.g.group is None:
+            fp.write('\nsurf s1 sqc 0.0 0.0 %.2f\n'
+                     % (self.g.pins[0].radii[-1]))
+            fp.write('root 98  0 fill %s   -s1\n' % self.g.pins[0].name)
+            fp.write('root 99  0 outside   s1\n')
+            fp.write('set bc 2\n')
             fp.write('\n')
 
-    def _write_cell(self, fp):
-        gg = np.asarray(self.g.cell.map)
+    def _write_assms(self, fp):
+        fp.write('%--- Assemblies\n')
+        if self.g.group[0].typeLattice == 'square':
+            for ii in range(0, len(self.g.group)):
+                fp.write('lat %s 1 0.0 0.0 %d %d %.2f\n'
+                         % (self.g.group[ii].name, len(self.g.group[ii].map),
+                            len(self.g.group[ii].map), self.g.group[ii].pitch))
+                for jj in range(0, np.size(self.g.group[ii].map, 0)):
+                    for kk in range(0, np.size(self.g.group[ii].map, 1)):
+                        fp.write('%s ' % self.g.group[ii].map[jj][kk])
+                    fp.write('\n')
+                fp.write('\n')
+        elif self.g.group[0].typeLattice == 'stack':
+            fp.write('lat %s 9 0.0 0.0 %d'
+                     % (self.g.group[0].name, len(self.g.group[0].map)))
+            for ii in range(0, len(self.g.group[0].map)):
+                fp.write('%s' % (self.g.group[ii]))
+        else:
+            fp.write('\nsurf s1 sqc 0.0 0.0 %.2f\n'
+                     % (self.g.pins[0].radii[-1]
+                        * np.size(self.g.group[0].map, 1)/2))
+            fp.write('root 98  0 fill %s   -s1\n' % self.g.pins[0].name)
+            fp.write('root 99  0 outside   s1\n')
+            fp.write('set bc 2\n')
+            fp.write('\n')
+
+    def _write_root(self, fp):
+        gg = np.asarray(self.g.root.map)
         print(gg)
-        fp.write('%--- Super-Cell\n')
+        fp.write('%--- Super-root\n')
         fp.write('lat %s 1 0.0 0.0 %d %d %.2f\n'
-                 % (self.g.cell.name, np.size(gg, 0),
-                    np.size(gg, 1), self.g.cell.pitch))
+                 % (self.g.root.name, np.size(gg, 0),
+                    np.size(gg, 1), self.g.root.pitch))
         for jj in range(0, np.size(gg, 0)):
             for kk in range(0, np.size(gg, 1)):
                 fp.write('%s ' % gg[jj, kk])
             fp.write('\n')
-        box_len1 = self.g.cell.pitch*np.size(gg, 0)/2
-        box_len2 = self.g.cell.pitch*np.size(gg, 1)/2
+        box_len1 = self.g.root.pitch*np.size(gg, 0)/2
+        box_len2 = self.g.root.pitch*np.size(gg, 1)/2
         fp.write('\nsurf s1 rect %.2f %.2f %.2f %.2f\n'
                  % (-box_len1, box_len1, -box_len2, box_len2))
-        fp.write('cell 98  0 fill %s   -s1\n' % self.g.cell.name)
-        fp.write('cell 99  0 outside   s1\n')
-        if self.g.cell.bc[0] == 'reflective':
-            if self.g.cell.bc[1] == 'reflective':
+        fp.write('root 98  0 fill %s   -s1\n' % self.g.root.name)
+        fp.write('root 99  0 outside   s1\n')
+        if self.g.root.bc[0] == 'reflective':
+            if self.g.root.bc[1] == 'reflective':
                 fp.write('set bc 2\n')
-            elif self.g.cell.bc[1] == 'vacuum':
+            elif self.g.root.bc[1] == 'vacuum':
                 fp.write('set bc 2 1\n')
-        elif self.g.cell.bc[0] == 'vacuum':
-            if self.g.cell.bc[1] == 'reflective':
+        elif self.g.root.bc[0] == 'vacuum':
+            if self.g.root.bc[1] == 'reflective':
                 fp.write('set bc 2 1\n')
-            elif self.g.cell.bc[1] == 'vacuum':
+            elif self.g.root.bc[1] == 'vacuum':
                 fp.write('set bc 1\n')
         fp.write('\n')
 
