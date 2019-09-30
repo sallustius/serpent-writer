@@ -60,7 +60,7 @@ class _GeometryWriter:
         self._write_pins(self.fp)
         if self.g.group:
             self._write_assms(self.fp)
-            if self.g.root:
+            if self.g.Root:
                 self._write_root(self.fp)
 
     def _write_pins(self, fp):
@@ -75,8 +75,8 @@ class _GeometryWriter:
         if self.g.group is None:
             fp.write('\nsurf s1 sqc 0.0 0.0 %.2f\n'
                      % (self.g.pins[0].radii[-1]))
-            fp.write('root 98  0 fill %s   -s1\n' % self.g.pins[0].name)
-            fp.write('root 99  0 outside   s1\n')
+            fp.write('cell 98  0 fill %s   -s1\n' % self.g.pins[0].name)
+            fp.write('cell 99  0 outside   s1\n')
             fp.write('set bc 2\n')
             fp.write('\n')
 
@@ -101,37 +101,37 @@ class _GeometryWriter:
             fp.write('\nsurf s1 sqc 0.0 0.0 %.2f\n'
                      % (self.g.pins[0].radii[-1]
                         * np.size(self.g.group[0].map, 1)/2))
-            fp.write('root 98  0 fill %s   -s1\n' % self.g.pins[0].name)
-            fp.write('root 99  0 outside   s1\n')
+            fp.write('cell 98  0 fill %s   -s1\n' % self.g.pins[0].name)
+            fp.write('cell 99  0 outside   s1\n')
             fp.write('set bc 2\n')
             fp.write('\n')
 
     def _write_root(self, fp):
-        gg = np.asarray(self.g.root.map)
+        gg = np.asarray(self.g.Root.map)
         print(gg)
-        fp.write('%--- Super-root\n')
+        fp.write('%--- Super-cell\n')
         fp.write('lat %s 1 0.0 0.0 %d %d %.2f\n'
-                 % (self.g.root.name, np.size(gg, 0),
-                    np.size(gg, 1), self.g.root.pitch))
+                 % (self.g.Root.name, np.size(gg, 0),
+                    np.size(gg, 1), self.g.Root.pitch))
         for jj in range(0, np.size(gg, 0)):
             for kk in range(0, np.size(gg, 1)):
                 fp.write('%s ' % gg[jj, kk])
             fp.write('\n')
-        box_len1 = self.g.root.pitch*np.size(gg, 0)/2
-        box_len2 = self.g.root.pitch*np.size(gg, 1)/2
+        box_len1 = self.g.Root.pitch*np.size(gg, 0)/2
+        box_len2 = self.g.Root.pitch*np.size(gg, 1)/2
         fp.write('\nsurf s1 rect %.2f %.2f %.2f %.2f\n'
                  % (-box_len1, box_len1, -box_len2, box_len2))
-        fp.write('root 98  0 fill %s   -s1\n' % self.g.root.name)
-        fp.write('root 99  0 outside   s1\n')
-        if self.g.root.bc[0] == 'reflective':
-            if self.g.root.bc[1] == 'reflective':
+        fp.write('cell 98  0 fill %s   -s1\n' % self.g.Root.name)
+        fp.write('cell 99  0 outside   s1\n')
+        if self.g.Root.bc[0] == 'reflective':
+            if self.g.Root.bc[1] == 'reflective':
                 fp.write('set bc 2\n')
-            elif self.g.root.bc[1] == 'vacuum':
+            elif self.g.Root.bc[1] == 'vacuum':
                 fp.write('set bc 2 1\n')
-        elif self.g.root.bc[0] == 'vacuum':
-            if self.g.root.bc[1] == 'reflective':
+        elif self.g.Root.bc[0] == 'vacuum':
+            if self.g.Root.bc[1] == 'reflective':
                 fp.write('set bc 2 1\n')
-            elif self.g.root.bc[1] == 'vacuum':
+            elif self.g.Root.bc[1] == 'vacuum':
                 fp.write('set bc 1\n')
         fp.write('\n')
 
