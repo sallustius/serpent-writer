@@ -1,4 +1,4 @@
-""" Collection of writers to create the Serpent input file"""
+""" Interface to create Serpent input file"""
 import numpy as np
 
 MAX_NUM = 1e+37
@@ -14,18 +14,31 @@ class SerpentWriter:
         filePath
     geometry: object
         geometry object
-    materials: object
+    materials: list
+        contains materials objects
+    settings: dict
+        contains settings for k-eff calculations
+    detectors: list
+        contains detectors
+    fission_matrix: object
+        contains fission matrix specifications
+    x_sec_generation: object
+        contains
 
     Attributes
     ----------
 
+
+
     """
-    def __init__(self, file_path, geometry, materials, settings,
-                 fission_matrix=None, title='input'):
+    def __init__(self, file_path, title, geometry, materials, settings,
+                 detectors=None, x_sec_generation=None, fission_matrix=None):
         self.fp = file_path
-        self.geo = geometry
-        self.mat = materials
-        self.set = settings
+        self.geometry = geometry
+        self.materials = materials
+        self.settings = settings
+        self.detectors = detectors
+        self.xs = x_sec_generation
         self.fm = fission_matrix
         self.title = title
 
@@ -33,13 +46,15 @@ class SerpentWriter:
         file = open(self.fp, 'w')
         file.write('set title "%s"\n\n' % self.title)
         # Create object instances
-        m = _MaterialsWriter(file, self.mat)
-        g = _GeometryWriter(file, self.geo)
-        s = _SettingsWriter(file, self.set)
+        m = _MaterialsWriter(file, self.materials)
+        g = _GeometryWriter(file, self.geometry)
+        s = _SettingsWriter(file, self.settings)
+        x = _XSecWriter(file, self.xs)
         # Write on input file
         g.geo_write()
         m.mat_write()
         s.set_write()
+        x.xs_write()
         if self.fm:
             d = _DetectorWriter(file, self.fm)
             d.fm_write()
@@ -60,7 +75,7 @@ class _GeometryWriter:
         self._write_pins(self.fp)
         if self.g.group:
             self._write_assms(self.fp)
-            if self.g.Root:
+            if self.g.root:
                 self._write_root(self.fp)
 
     def _write_pins(self, fp):
@@ -107,31 +122,31 @@ class _GeometryWriter:
             fp.write('\n')
 
     def _write_root(self, fp):
-        gg = np.asarray(self.g.Root.map)
+        gg = np.asarray(self.g.root.map)
         print(gg)
         fp.write('%--- Super-cell\n')
         fp.write('lat %s 1 0.0 0.0 %d %d %.2f\n'
-                 % (self.g.Root.name, np.size(gg, 0),
-                    np.size(gg, 1), self.g.Root.pitch))
+                 % (self.g.root.name, np.size(gg, 0),
+                    np.size(gg, 1), self.g.root.pitch))
         for jj in range(0, np.size(gg, 0)):
             for kk in range(0, np.size(gg, 1)):
                 fp.write('%s ' % gg[jj, kk])
             fp.write('\n')
-        box_len1 = self.g.Root.pitch*np.size(gg, 0)/2
-        box_len2 = self.g.Root.pitch*np.size(gg, 1)/2
+        box_len1 = self.g.root.pitch*np.size(gg, 0)/2
+        box_len2 = self.g.root.pitch*np.size(gg, 1)/2
         fp.write('\nsurf s1 rect %.2f %.2f %.2f %.2f\n'
                  % (-box_len1, box_len1, -box_len2, box_len2))
-        fp.write('cell 98  0 fill %s   -s1\n' % self.g.Root.name)
+        fp.write('cell 98  0 fill %s   -s1\n' % self.g.root.name)
         fp.write('cell 99  0 outside   s1\n')
-        if self.g.Root.bc[0] == 'reflective':
-            if self.g.Root.bc[1] == 'reflective':
+        if self.g.root.bc[0] == 'reflective':
+            if self.g.root.bc[1] == 'reflective':
                 fp.write('set bc 2\n')
-            elif self.g.Root.bc[1] == 'vacuum':
+            elif self.g.root.bc[1] == 'vacuum':
                 fp.write('set bc 2 1\n')
-        elif self.g.Root.bc[0] == 'vacuum':
-            if self.g.Root.bc[1] == 'reflective':
+        elif self.g.root.bc[0] == 'vacuum':
+            if self.g.root.bc[1] == 'reflective':
                 fp.write('set bc 2 1\n')
-            elif self.g.Root.bc[1] == 'vacuum':
+            elif self.g.root.bc[1] == 'vacuum':
                 fp.write('set bc 1\n')
         fp.write('\n')
 
@@ -186,7 +201,18 @@ class _SettingsWriter:
         self.fp.write('set acelib "%s"\n' % self.set['lib'])
         if self.set['ures'] != 0:
             self.fp.write('set ures 1 3 %s \n' % self.set['ures'])
-        self.fp.write('set nfg 1\n')
+
+
+class _XSecWriter:
+    def __init__(self, file_path, xsData):
+        self.fp = file_path
+        self.xs = xsData
+
+    def xs_write(self):
+        self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n')
+        self.fp.write('%\t\t CROSS-SECTIONS\n')
+        self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\n')
+        self.fp.write('set nfg %s\n' % len(self.xs.nameStructure) )
         self.fp.write('ene ciao 1 0 20\n\n')
 
 
@@ -206,9 +232,11 @@ class _DetectorWriter:
         string = 'set fmtx %d %.2f %.2f %d ' \
                  '%.2f %.2f %d %.2e %.2e %d\n' \
                  % (flag,
-                    self.fm.Limits[0], self.fm.Limits[1], self.fm.Limits[2],
-                    self.fm.Limits[3], self.fm.Limits[4], self.fm.Limits[5],
-                    self.fm.Limits[6], self.fm.Limits[7], self.fm.Limits[8],)
+                    self.fm.dimensions[0], self.fm.dimensions[1],
+                    self.fm.numberOfCells[0], self.fm.dimensions[2],
+                    self.fm.dimensions[3], self.fm.numberOfCells[1],
+                    self.fm.dimensions[4], self.fm.dimensions[5],
+                    self.fm.numberOfCells[2],)
         return string
 
     def fm_write(self):

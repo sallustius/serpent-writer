@@ -162,7 +162,7 @@ class Geometry:
         List of PinCell objects
     group: object
         List of GroupCell objects
-    cell: object
+    root: object
         Contains the super-cell specifications
     """
 
@@ -170,7 +170,7 @@ class Geometry:
         self.name = name
         self.pins = pin_set
         self.group = group_set
-        self.cell = super_cell
+        self.root = super_cell
 
 
 class Material:
@@ -256,19 +256,18 @@ class Detector:
         type of detector. Allowed values are 'fissionSource' and 'power'.
     """
 
-    def __init__(self, name, nx_ny_nz,
-                 limits=(0, 1, 0, 1, -MAX_NUM, MAX_NUM),
-                 det_type='fissionSource'):
+    def __init__(self, name, limits=(0, 1, 0, 1, -MAX_NUM, MAX_NUM),
+                 nx_ny_nz=(10, 10, 1), det_type='fissionSource'):
         self.name = name
         self.dimensions = limits
-        self.numbersOfCells = nx_ny_nz
+        self.numberOfCells = nx_ny_nz
         self.detectorType = detectorDictionary[det_type]
         self._pre_check()
 
     def _pre_check(self):
         assert(isinstance(self.name, str))
-        assert(isinstance(self.dimensions, tuple))
-        assert (isinstance(self.numbersOfCells, list))
+        assert(isinstance(self.dimensions, list))
+        assert (isinstance(self.numberOfCells, list))
         assert(isinstance(self.detectorType, str))
 
 
@@ -285,7 +284,9 @@ class FissionMatrix:
 
     Attributes
     ----------
-    Limits: list or tuple
+    numberOfCells: list
+        number of cells in x-y-z directions
+    dimensions: list or tuple
         six-elements list containing fission matrix limits
     typeFM: str
         'Cartesian' is currently the only allowed value
@@ -295,13 +296,13 @@ class FissionMatrix:
                  limits=(0, 1, 0, 1, -MAX_NUM, MAX_NUM),
                  nx_ny_nz=(1, 1, 10)):
         self.typeFM = type_fm
-        self.Limits = limits
+        self.dimensions = limits
         self.numberOfCells = nx_ny_nz
 
     def _pre_check(self):
         assert(isinstance(self.typeFM, str))
-        assert(isinstance(self.Limits, tuple))
-        assert(isinstance(self.numberOfCells, tuple))
+        assert(isinstance(self.dimensions, list))
+        assert(isinstance(self.numberOfCells, list))
 
 
 class XSecGeneration:
