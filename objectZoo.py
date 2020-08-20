@@ -8,6 +8,11 @@
     6) Detector(type, limits, numberOfElements)
     7) FissionMatrix(type_fm, limits)
     8) XSecGeneration(GroupInterfaces, universes)
+
+    Enhancements:
+    1) Add fum option to the cross-sections
+    2) Add burn, vol, tmp, tft, rgb, fix options to material card
+    3) Add different options for root
 """
 MAX_NUM = 1e+37
 detectorDictionary = {'fissionSource': '-7', 'power': '-8'}
@@ -61,7 +66,7 @@ class Group:
         pin_map: list
             Pins Map
         pitch: float
-``          Pitch between assemblies
+            Pitch between assemblies
         type_lattice: string
             Type of lattice. Currently
             square or stack
@@ -73,7 +78,7 @@ class Group:
         pin_map: list
             Pins Map
         pitch: float
-``          Pitch between assemblies
+            Pitch between assemblies
         type_lattice: string
             Type of lattice
         """
@@ -87,7 +92,6 @@ class Group:
     def _pre_check(self):
         assert(isinstance(self.name, str))
         assert(isinstance(self.map, list))
-        assert(isinstance(self.pitch, float))
         assert(isinstance(self.typeLattice, str))
         assert (self.typeLattice == 'square' or self.typeLattice == 'stack')
 
@@ -138,6 +142,50 @@ class Root:
                 or self.bc[1] == 'periodic')
 
 
+
+class Root:
+    """
+    Class to define the universe zero associated to the boundary conditions
+
+    Parameters
+    ----------
+    name: str
+        Name of super-cell
+    dimensions: list
+        L_x, L_y, L_z
+    boundary_condition: list
+        String for boundary conditions.
+        bc[0]: radial b.c.
+        bc[1]: axial b.c.
+
+    Attributes
+    ----------
+    name: string
+        ID for the super-cell
+    dimensions: list
+        Assembly map
+    bc: list
+        Two-elements list containing boundary conditions,
+        'reflective': reflective bc
+        'vacuum': vacuum bc
+        'periodic': periodic bc
+    """
+
+    def __init__(self, name, dimensions, boundary_condition):
+        self.name = name
+        self.dimensions = dimensions
+        self.bc = boundary_condition
+        self._pre_check()
+
+    def _pre_check(self):
+        assert(isinstance(self.name, str))
+        assert(isinstance(self.dimensions, list))
+        assert(self.bc[0] == 'reflective' or self.bc[0] == 'vacuum'
+               or self.bc[0] == 'periodic')
+        assert (self.bc[1] == 'reflective' or self.bc[1] == 'vacuum'
+                or self.bc[1] == 'periodic')
+
+
 class Geometry:
     """
     Class containing full geometry. Input for the writer.
@@ -166,11 +214,11 @@ class Geometry:
         Contains the super-cell specifications
     """
 
-    def __init__(self, name, pin_set, group_set=None, super_cell=None):
+    def __init__(self, name, pin_set, group_set=None, root=None):
         self.name = name
         self.pins = pin_set
         self.group = group_set
-        self.root = super_cell
+        self.root = root
 
 
 class Material:
@@ -181,9 +229,9 @@ class Material:
     ----------
     name: string
         ID for the super-cell
-    density: float
+    density: str
         density in g/cc
-    temperature: float
+    temperature: str
         material temperature in K
     composition: list
         list containing zaids and corresponding number densities
@@ -195,9 +243,9 @@ class Material:
     ----------
     name: string
         ID for the super-cell
-    density: float
+    density: str
         density in g/cc
-    temperature: float
+    temperature: str
         material temperature in K
     composition: list
         list containing zaids and corresponding number densities
@@ -210,23 +258,23 @@ class Material:
     """
 
     def __init__(self, name, density, temperature, composition,
-                 param='mass', moder=None):
+                 param='mass', moder=None, modeName='lwtr'):
         self.name = name
         self.density = density
         self.temperature = temperature
         self.composition = composition
         self.param = param
         self.moder = moder
+        self.moderName = modeName
 
     def _pre_check(self):
         assert(isinstance(self.name, str))
-        assert (isinstance(self.density, float)
-                or isinstance(self.density, int))
-        assert(isinstance(self.temperature, float)
-               or isinstance(self.temperature, int))
+        assert (isinstance(self.density, str))
+        assert(isinstance(self.temperature, str))
         assert(isinstance(self.composition, list))
         assert(self.param == 'mass' or self.param == 'molar')
         assert(isinstance(self.moder, str))
+        assert(isinstance(self.modeName, str))
 
 
 class Detector:
@@ -312,7 +360,7 @@ class XSecGeneration:
     Parameters
     ----------
     universes: list or tuple
-        list containing universes for which cross-sections
+        list containing universes for which cross-sections are generated
     name_group: str
         Name of group structure
     group_boundaries: list
@@ -327,7 +375,8 @@ class XSecGeneration:
     nameStructure: list
         Group boundaries (G+1)
     """
-    def __init__(self, universes, name_group=None, group_boundaries=None):
+    def __init__(self, name_group='default2',
+                 group_boundaries=None, universes=None):
         self.universes = universes
         self.groupBoundaries = group_boundaries
         self.nameStructure = name_group
