@@ -18,7 +18,7 @@ class SerpentWriter:
         contains materials objects
     settings: dict
         contains settings for k-eff calculations
-    detectors: list
+    detectors: object
         contains detectors
     fission_matrix: object
         contains fission matrix specifications
@@ -46,23 +46,27 @@ class SerpentWriter:
         file = open(self.fp, 'w')
         file.write('set title "%s"\n\n' % self.title)
         # Create object instances
-        m = _MaterialsWriter(file, self.materials)
-        g = _GeometryWriter(file, self.geometry)
-        s = _SettingsWriter(file, self.settings)
-        x = _XSecWriter(file, self.xs)
+        m = MaterialsWriter(file, self.materials)
+        g = GeometryWriter(file, self.geometry)
+        s = SettingsWriter(file, self.settings)
         # Write on input file
-        g.geo_write()
         m.mat_write()
+        g.geo_write()
         s.set_write()
-        x.xs_write()
+        if self.detectors:
+            d = DetectorWriter(file, self.detectors)
+            d.det_write()
+        if self.xs:
+            x = XSecWriter(file, self.xs)
+            x.xs_write()
         if self.fm:
-            d = _DetectorWriter(file, self.fm)
-            d.fm_write()
+            f = FMWriter(file, self.fm)
+            f.fm_write()
         # Close file
         file.close()
 
 
-class _GeometryWriter:
+class GeometryWriter:
 
     def __init__(self, file_path, geometry):
         self.fp = file_path
@@ -72,11 +76,12 @@ class _GeometryWriter:
         self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n')
         self.fp.write('%\t\t GEOMETRY\n')
         self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\n')
-        self._write_pins(self.fp)
+        if self.g.pins:
+            self._write_pins(self.fp)
         if self.g.group:
             self._write_assms(self.fp)
-            if self.g.root:
-                self._write_root(self.fp)
+        if self.g.root:
+            self._write_root(self.fp)
 
     def _write_pins(self, fp):
         fp.write('%--- Pins\n')
@@ -85,7 +90,7 @@ class _GeometryWriter:
             for ii in range(0, np.size(self.g.pins[jj].radii) - 1):
                 fp.write('%s   %.4f \n' % (self.g.pins[jj].materials[ii],
                                            self.g.pins[jj].radii[ii]))
-            fp.write('%s  \n\n' % (self.g.pins[jj].materials[-1]))
+            fp.write('%s  \n\n' % self.g.pins[jj].materials[-1])
 
         if self.g.group is None:
             fp.write('\nsurf s1 sqc 0.0 0.0 %.2f\n'
@@ -97,9 +102,9 @@ class _GeometryWriter:
 
     def _write_assms(self, fp):
         fp.write('%--- Assemblies\n')
-        if self.g.group[0].typeLattice == 'square':
-            for ii in range(0, len(self.g.group)):
-                fp.write('lat %s 1 0.0 0.0 %d %d %.2f\n'
+        for ii in range(0, len(self.g.group)):
+            if self.g.group[ii].typeLattice == 'square':
+                fp.write('lat %s 1 0.0 0.0 %d %d %.3f\n'
                          % (self.g.group[ii].name, len(self.g.group[ii].map),
                             len(self.g.group[ii].map), self.g.group[ii].pitch))
                 for jj in range(0, np.size(self.g.group[ii].map, 0)):
@@ -107,51 +112,49 @@ class _GeometryWriter:
                         fp.write('%s ' % self.g.group[ii].map[jj][kk])
                     fp.write('\n')
                 fp.write('\n')
-        elif self.g.group[0].typeLattice == 'stack':
-            fp.write('lat %s 9 0.0 0.0 %d'
-                     % (self.g.group[0].name, len(self.g.group[0].map)))
-            for ii in range(0, len(self.g.group[0].map)):
-                fp.write('%s' % (self.g.group[ii]))
-        else:
-            fp.write('\nsurf s1 sqc 0.0 0.0 %.2f\n'
-                     % (self.g.pins[0].radii[-1]
-                        * np.size(self.g.group[0].map, 1)/2))
-            fp.write('cell 98  0 fill %s   -s1\n' % self.g.pins[0].name)
-            fp.write('cell 99  0 outside   s1\n')
-            fp.write('set bc 2\n')
-            fp.write('\n')
+            elif self.g.group[ii].typeLattice == 'stack':
+                fp.write('lat %s 9 0.0 0.0 %d\n'
+                         % (self.g.group[ii].name, len(self.g.group[ii].map)))
+                print(self.g.group[ii].map)
+                print(len(self.g.group[ii].map))
 
-    def _write_root(self, fp):
-        gg = np.asarray(self.g.root.map)
-        print(gg)
-        fp.write('%--- Super-cell\n')
-        fp.write('lat %s 1 0.0 0.0 %d %d %.2f\n'
-                 % (self.g.root.name, np.size(gg, 0),
-                    np.size(gg, 1), self.g.root.pitch))
-        for jj in range(0, np.size(gg, 0)):
-            for kk in range(0, np.size(gg, 1)):
-                fp.write('%s ' % gg[jj, kk])
-            fp.write('\n')
-        box_len1 = self.g.root.pitch*np.size(gg, 0)/2
-        box_len2 = self.g.root.pitch*np.size(gg, 1)/2
-        fp.write('\nsurf s1 rect %.2f %.2f %.2f %.2f\n'
-                 % (-box_len1, box_len1, -box_len2, box_len2))
-        fp.write('cell 98  0 fill %s   -s1\n' % self.g.root.name)
-        fp.write('cell 99  0 outside   s1\n')
+                for jj in range(0, len(self.g.group[ii].map)):
+                    fp.write('%.3f %s\n' % (self.g.group[ii].pitch[jj], self.g.group[ii].map[jj]))
+                fp.write('\n')
+            else:
+                TypeError('Error in group-type. Existing types:'
+                          ' square, and stack')
+
+    def _write_bc(self, fp):
         if self.g.root.bc[0] == 'reflective':
             if self.g.root.bc[1] == 'reflective':
                 fp.write('set bc 2\n')
             elif self.g.root.bc[1] == 'vacuum':
-                fp.write('set bc 2 1\n')
+                fp.write('set bc 2 2 1\n')
         elif self.g.root.bc[0] == 'vacuum':
             if self.g.root.bc[1] == 'reflective':
-                fp.write('set bc 2 1\n')
+                fp.write('set bc 1 1 2\n')
             elif self.g.root.bc[1] == 'vacuum':
-                fp.write('set bc 1\n')
+                fp.write('set bc 1 1 1\n')
+        else:
+            ValueError('bc can be either reflective or vacuum')
         fp.write('\n')
 
+    def _write_root(self, fp):
+        fp.write('%--- Root universe\n')
+        fp.write('surf 1000 cuboid -%.3f %.3f -%.3f %.3f '
+                 '0.000 %.2f\n' %(self.g.root.dimensions[0]/2,
+                                  self.g.root.dimensions[0]/2,
+                                  self.g.root.dimensions[1]/2,
+                                  self.g.root.dimensions[1]/2,
+                                  self.g.root.dimensions[2]))
+        fp.write('cell 110  0  fill %s    -1000\n' % self.g.root.name)
+        fp.write('cell 112  0  outside     1000\n')
+        # Write boundary conditions
+        self._write_bc(fp)
 
-class _MaterialsWriter:
+
+class MaterialsWriter:
     def __init__(self, file_path, materials):
         self.lista = materials
         self.fp = file_path
@@ -162,13 +165,21 @@ class _MaterialsWriter:
         self.fp.write('%\t\t MATERIALS\n')
         self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\n')
         for ii in range(0, len(self.lista)):
-            if self.lista[ii].moder is None:
-                self.fp.write('mat %s %s\n' % (
-                    self.lista[ii].name, self.lista[ii].density))
+            if self.lista[ii].moder and self.lista[ii].density is not 'sum':
+                self.fp.write('therm %s %s\n' % (self.lista[ii].moderName, self.lista[ii].moder))
+                self.fp.write('mat %s -%.3f moder %s 1001\n'
+                              % (self.lista[ii].name, float(self.lista[ii].density), self.lista[ii].moderName) )
+            elif self.lista[ii].moder is None \
+                    and self.lista[ii].density is 'sum':
+                self.fp.write('mat %s sum\n' % self.lista[ii].name)
+            elif self.lista[ii].moder \
+                    and self.lista[ii].density is 'sum':
+                self.fp.write('therm %s %s\n' % (self.lista[ii].moderName, self.lista[ii].moder))
+                self.fp.write('mat %s sum moder %s 1001\n'
+                              % (self.lista[ii].name, self.lista[ii].moderName))
             else:
-                self.fp.write('therm lwtr %s\n' % self.lista[ii].moder)
-                self.fp.write('mat %s %s moder lwtr 1001\n' % (
-                    self.lista[ii].name, self.lista[ii].density))
+                self.fp.write('mat %s -%s\n' %
+                              (self.lista[ii].name, self.lista[ii].density))
 
             lunghezza = np.size(self.lista[ii].composition, 0)
             if self.lista[ii].param == 'mass':
@@ -184,8 +195,7 @@ class _MaterialsWriter:
 
             self.fp.write('\n')
 
-
-class _SettingsWriter:
+class SettingsWriter:
     def __init__(self, file_path, settings):
         self.set = settings
         self.fp = file_path
@@ -203,20 +213,27 @@ class _SettingsWriter:
             self.fp.write('set ures 1 3 %s \n' % self.set['ures'])
 
 
-class _XSecWriter:
-    def __init__(self, file_path, xsData):
+class XSecWriter:
+    def __init__(self, file_path, xs_data):
         self.fp = file_path
-        self.xs = xsData
+        self.xs = xs_data
 
     def xs_write(self):
-        self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n')
+        self.fp.write('\n% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n')
         self.fp.write('%\t\t CROSS-SECTIONS\n')
         self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\n')
-        self.fp.write('set nfg %s\n' % len(self.xs.nameStructure) )
-        self.fp.write('ene ciao 1 0 20\n\n')
+        self.fp.write('set nfg %s\n' % self.xs.nameStructure)
+        if self.xs.groupBoundaries:
+            string = ' '
+            string = string.join(map(str, self.xs.groupBoundaries))
+            self.fp.write('ene %s 1 %s\n' % (self.xs.nameStructure, string))
+        if self.xs.universes:
+            string = '\n'
+            string = string.join(map(str, self.xs.universes))
+            self.fp.write('set gcu %s \n\n' % string)
 
 
-class _DetectorWriter:
+class FMWriter:
     def __init__(self, file_path, fission_matrix):
         self.fp = file_path
         self.fm = fission_matrix
@@ -249,3 +266,26 @@ class _DetectorWriter:
         self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\n')
         self.fp.write(self._fission_matrix_cart(flag))
         print('Completed')
+
+
+class DetectorWriter:
+    def __init__(self, file_path, detector):
+        self.fp = file_path
+        self.det = detector
+
+    def _detector_cart(self):
+        string = 'det %s dr -8 void dx %.2f %.2f %.0f ' \
+                 'dy %.2f %.2f %.0f dz %.2f %.2f %.0f\n' \
+                 % (self.det.name,
+                    self.det.dimensions[0], self.det.dimensions[1],
+                    self.det.numberOfCells[0], self.det.dimensions[2],
+                    self.det.dimensions[3], self.det.numberOfCells[1],
+                    self.det.dimensions[4], self.det.dimensions[5],
+                    self.det.numberOfCells[2])
+        return string
+
+    def det_write(self):
+        self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n')
+        self.fp.write('%\t\t DETECTORS\n')
+        self.fp.write('% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\n')
+        self.fp.write(self._detector_cart())
