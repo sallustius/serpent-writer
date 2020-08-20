@@ -66,7 +66,7 @@ class Group:
         pin_map: list
             Pins Map
         pitch: float
-``          Pitch between assemblies
+            Pitch between assemblies
         type_lattice: string
             Type of lattice. Currently
             square or stack
@@ -78,7 +78,7 @@ class Group:
         pin_map: list
             Pins Map
         pitch: float
-``          Pitch between assemblies
+            Pitch between assemblies
         type_lattice: string
             Type of lattice
         """
@@ -94,6 +94,53 @@ class Group:
         assert(isinstance(self.map, list))
         assert(isinstance(self.typeLattice, str))
         assert (self.typeLattice == 'square' or self.typeLattice == 'stack')
+
+
+class Root:
+    """
+    Class to define the universe zero associated to the boundary conditions
+
+    Parameters
+    ----------
+    name: str
+        Name of super-cell
+    group_map: list
+        Assembly Map
+    pitch: float
+        Pitch between assemblies
+    boundary_condition: list
+        String for boundary conditions.
+        bc[0]: radial b.c.
+        bc[1]: axial b.c.
+
+    Attributes
+    ----------
+    name: string
+        ID for the super-cell
+    map: list
+        Assembly map
+    bc: list
+        Two-elements list containing boundary conditions,
+        'reflective': reflective bc
+        'vacuum': vacuum bc
+        'periodic': periodic bc
+    """
+
+    def __init__(self, name, group_map, pitch, boundary_condition):
+        self.name = name
+        self.map = group_map
+        self.pitch = pitch
+        self.bc = boundary_condition
+        self._pre_check()
+
+    def _pre_check(self):
+        assert(isinstance(self.name, str))
+        assert(isinstance(self.map, list))
+        assert(self.bc[0] == 'reflective' or self.bc[0] == 'vacuum'
+               or self.bc[0] == 'periodic')
+        assert (self.bc[1] == 'reflective' or self.bc[1] == 'vacuum'
+                or self.bc[1] == 'periodic')
+
 
 
 class Root:
